@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 from zhipuai import ZhipuAI
 
 
@@ -292,7 +293,7 @@ def main():
         df[audit_field] = df[audit_field].astype("object")
 
     rows_to_label = []
-    for index, row in df.iterrows():
+    for index, row in tqdm(df.iterrows(), total=len(df), desc="Finding missing labels", unit="row"):
         if args.fill_all:
             fields_to_fill = LABEL_FIELDS
         else:
@@ -312,7 +313,10 @@ def main():
     client = ZhipuAI(api_key=api_key)
     ok_count = 0
     error_count = 0
-    for count, (index, fields_to_fill) in enumerate(rows_to_label, start=1):
+    for count, (index, fields_to_fill) in enumerate(
+        tqdm(rows_to_label, desc="GLM labeling", unit="row"),
+        start=1,
+    ):
         row = df.loc[index]
         image_url, label_source = row_image_url(row, use_remote_image=not args.no_remote_image)
         df.at[index, "glm_model"] = args.model

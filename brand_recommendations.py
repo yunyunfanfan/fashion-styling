@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
 
 DIMENSION_LABELS = {
@@ -110,7 +111,7 @@ def risk_note_for_item(item):
 
 def build_recommendation_rows(trends, strong_threshold, weak_threshold):
     rows = []
-    for _, row in trends.iterrows():
+    for _, row in tqdm(trends.iterrows(), total=len(trends), desc="Building recommendation rows", unit="trend"):
         tier = classify_tier(row["trend_score"], strong_threshold, weak_threshold)
         rows.append(
             {
@@ -176,7 +177,8 @@ def build_context(recommendations, product_df):
     }
 
     top_evidence = []
-    for _, row in strong.sort_values("trend_score", ascending=False).head(12).iterrows():
+    strong_top = strong.sort_values("trend_score", ascending=False).head(12)
+    for _, row in tqdm(strong_top.iterrows(), total=len(strong_top), desc="Collecting trend evidence", unit="trend"):
         top_evidence.append(
             {
                 "dimension": row["dimension"],
@@ -222,7 +224,8 @@ def local_markdown(recommendations, context, markdown_dir):
     ]
 
     strong = recommendations[recommendations["tier"] == "Strong Trend"].sort_values("trend_score", ascending=False)
-    for dimension, subset in strong.groupby("dimension", sort=False):
+    grouped_strong = list(strong.groupby("dimension", sort=False))
+    for dimension, subset in tqdm(grouped_strong, desc="Writing strong trend labels", unit="dimension"):
         lines.append(f"### {dimension}")
         lines.append("")
         lines.append("```text")
@@ -231,7 +234,7 @@ def local_markdown(recommendations, context, markdown_dir):
         lines.append("")
 
     lines.extend(["## Trend Recommendations", ""])
-    for item in context["top_evidence"][:8]:
+    for item in tqdm(context["top_evidence"][:8], desc="Writing recommendation sections", unit="trend"):
         lines.append(f"### {item['label']} ({item['dimension_name']})")
         lines.append("")
         lines.append("#### Trend Insight")
@@ -343,7 +346,7 @@ def main():
 
     context = build_context(recommendations, product_df)
     # Add display image paths that are relative to the markdown output directory.
-    for item in context["top_evidence"]:
+    for item in tqdm(context["top_evidence"], desc="Preparing image paths", unit="trend"):
         for product in item["sample_products"]:
             product["display_image_path"] = display_image_path(product, out_dir)
 

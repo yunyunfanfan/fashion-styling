@@ -965,3 +965,55 @@ trend-ready product metadata
 ## 12. Short Summary
 
 Amazon pipeline 用当前搜索结果页面采集最新商品数据，保存商品文本、价格、评分、评论数量、图片链接和初始 fashion 标签。随后通过清洗脚本删除缺少市场反馈信号的商品，再使用固定 taxonomy、人工补标或 GLM 视觉/文本模型补全标签。处理后的数据可以用于统计颜色、材质、图案、风格和场景等趋势信号。
+
+## 13. Sample Output Preview
+
+下面是 `brand_recommendations.py` 生成的最终 Markdown 报告样例。报告会把 CRITIC 趋势分数、商品证据和爬取到的商品图片组合在一起，形成面向品牌的趋势建议。
+
+完整样例文件：
+
+```text
+analysis/demo_recommendations_structured/brand_recommendations.md
+analysis/brand_recommendations.md
+```
+
+### Example Trend Insight
+
+当前样例中，Amazon 商品数据得到的主要强趋势包括：
+
+```text
+style: casual
+pattern: solid, floral
+material: cotton
+colour: red, denim, black
+scene: vacation
+```
+
+这些标签会进一步组合成产品方向，例如：
+
+```text
+Develop products around cotton with casual positioning, for vacation.
+Use red, denim, black as colour direction and solid, floral as visual surface direction.
+```
+
+### Example Visual Evidence
+
+| Trend Signal | Product Evidence | Image |
+| --- | --- | --- |
+| `casual` style | Striped shirt, rating 3.7, 1803 ratings | ![casual striped shirt](https://m.media-amazon.com/images/I/61SB14qT0EL._AC_UL320_.jpg) |
+| `solid` pattern | Linen cotton shirt, rating 3.2, 746 ratings | ![solid linen shirt](https://m.media-amazon.com/images/I/81I4F9xgijL._AC_UL320_.jpg) |
+| `denim` colour/material direction | Denim jacket, strong cross-query signal | ![denim jacket](https://m.media-amazon.com/images/I/51g+JumJl9L._AC_UL320_.jpg) |
+
+### Example Recommendation Format
+
+每个强趋势在最终报告中都会按照下面结构输出：
+
+```text
+Trend Insight
+Evidence
+Product Direction
+Brand Recommendation
+Risk / Validation Note
+```
+
+这样最终结果不是停留在“某个商品很热门”，而是把单品证据转化为可解释、可验证、可执行的品牌趋势方向。

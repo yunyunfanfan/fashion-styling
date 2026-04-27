@@ -8,6 +8,7 @@ from urllib.parse import quote_plus, urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 
 BASE_URL = "https://www.amazon.in"
@@ -289,7 +290,7 @@ def save_rows(rows, output_csv):
 
 def scrape_query(session, query, pages, max_items, delay):
     rows = []
-    for page in range(1, pages + 1):
+    for page in tqdm(range(1, pages + 1), desc=f"Pages for {query}", unit="page"):
         url = build_search_url(query, page)
         print(f"Scraping {query!r}, page {page}: {url}")
 
@@ -326,7 +327,7 @@ def scrape_query(session, query, pages, max_items, delay):
 
 def download_images_for_rows(session, rows, image_dir, delay):
     image_dir.mkdir(parents=True, exist_ok=True)
-    for index, row in enumerate(rows, start=1):
+    for index, row in enumerate(tqdm(rows, desc=f"Downloading {image_dir.name}", unit="image"), start=1):
         image_path = image_dir / f"{index:04d}_{row['asin'] or 'unknown'}.jpg"
         try:
             if download_image(session, row["image_url"], image_path, delay):
@@ -373,7 +374,7 @@ def main():
         items_per_query = args.items_per_query
 
     batch_rows = []
-    for query in queries:
+    for query in tqdm(queries, desc="Scraping queries", unit="query"):
         query_slug = safe_name(query)
         query_rows = scrape_query(
             session=session,

@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
 
 REQUIRED_NUMERIC_FIELDS = ["rating_numeric", "number_of_ratings_numeric"]
@@ -69,7 +70,7 @@ def apply_manual_labels(df, manual_labels_csv):
     manual = manual.set_index("asin", drop=False)
 
     updated_cells = 0
-    for asin, row in manual.iterrows():
+    for asin, row in tqdm(manual.iterrows(), total=len(manual), desc="Applying manual labels", unit="row"):
         if asin not in cleaned.index:
             continue
         for field in MANUAL_LABEL_FIELDS:

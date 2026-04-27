@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 
 DEFAULT_DIMENSIONS = [
@@ -94,7 +95,7 @@ def aggregate_dimension(df, dimension, include_unknown):
 
 def write_weights(weights_by_dimension, output_path):
     rows = []
-    for dimension, weights in weights_by_dimension.items():
+    for dimension, weights in tqdm(weights_by_dimension.items(), desc="Writing CRITIC weights", unit="dimension"):
         row = {"dimension": dimension}
         row.update(weights.to_dict())
         rows.append(row)
@@ -122,7 +123,7 @@ def write_report(df, all_results, weights_by_dimension, output_path, include_unk
         "",
     ]
 
-    for dimension, weights in weights_by_dimension.items():
+    for dimension, weights in tqdm(weights_by_dimension.items(), desc="Writing report weights", unit="dimension"):
         lines.append(f"### {dimension}")
         lines.append("")
         for criterion, value in weights.items():
@@ -130,7 +131,7 @@ def write_report(df, all_results, weights_by_dimension, output_path, include_unk
         lines.append("")
 
     lines.extend(["## Top Trend Labels", ""])
-    for dimension in DEFAULT_DIMENSIONS:
+    for dimension in tqdm(DEFAULT_DIMENSIONS, desc="Writing top labels", unit="dimension"):
         subset = all_results[all_results["dimension"] == dimension].head(10)
         lines.append(f"### {dimension}")
         lines.append("")
@@ -178,7 +179,7 @@ def main():
 
     results = []
     weights_by_dimension = {}
-    for dimension in DEFAULT_DIMENSIONS:
+    for dimension in tqdm(DEFAULT_DIMENSIONS, desc="Analyzing dimensions", unit="dimension"):
         dimension_result, weights = aggregate_dimension(df, dimension, args.include_unknown)
         if not dimension_result.empty:
             dimension_result.to_csv(output_dir / f"trend_{dimension}.csv", index=False)
