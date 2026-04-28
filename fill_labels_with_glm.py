@@ -85,14 +85,25 @@ TAXONOMY = {
 }
 
 LABEL_FIELDS = list(TAXONOMY)
+MISSING_MEDIA_MARKERS = {
+    "",
+    "nan",
+    "none",
+    "not_available",
+    "not_downloaded",
+    "download_failed",
+    "no_video",
+    "not_checked",
+    "extract_failed",
+}
 
 
 def is_missing_label(value):
     return pd.isna(value) or str(value).strip() in {"", "unknown", "not_available"}
 
 
-def image_to_data_uri(path):
-    image_path = Path(path)
+def local_image_to_data_uri(path):
+    image_path = Path(str(path).strip())
     if not image_path.exists() or not image_path.is_file():
         return ""
 
@@ -107,18 +118,58 @@ def image_to_data_uri(path):
     return f"data:{mime_type};base64,{encoded}"
 
 
-def row_image_url(row, use_remote_image):
-    local_path = str(row.get("local_image_path", "") or "")
-    if local_path and local_path not in {"not_downloaded", "download_failed", "not_available"}:
-        data_uri = image_to_data_uri(local_path)
-        if data_uri:
-            return data_uri, "local_image"
+def is_missing_media(value):
+    if pd.isna(value):
+        return True
+    text = str(value).strip()
+    return text.lower() in MISSING_MEDIA_MARKERS
 
-    remote_url = str(row.get("image_url", "") or "")
-    if use_remote_image and remote_url.startswith(("http://", "https://")):
-        return remote_url, "remote_image"
 
-    return "", "text_only"
+def split_media_paths(value):
+    if is_missing_media(value):
+        return []
+    return [part.strip() for part in str(value).split("|") if not is_missing_media(part)]
+
+
+def add_local_visual(visual_inputs, source, path):
+    if is_missing_media(path):
+        return
+    data_uri = local_image_to_data_uri(path)
+    if data_uri:
+        visual_inputs.append((data_uri, source))
+
+
+def add_remote_visual(visual_inputs, source, url, use_remote_image):
+    if not use_remote_image or is_missing_media(url):
+        return
+    url = str(url).strip()
+    if url.startswith(("http://", "https://")):
+        visual_inputs.append((url, source))
+
+
+def row_visual_inputs(row, use_remote_image, max_visual_inputs):
+    visual_inputs = []
+
+    add_local_visual(visual_inputs, "local_image", row.get("local_image_path", ""))
+    add_local_visual(visual_inputs, "local_video_cover", row.get("local_video_cover_path", ""))
+    for frame_path in split_media_paths(row.get("local_video_frame_paths", "")):
+        add_local_visual(visual_inputs, "local_video_frame", frame_path)
+    add_local_visual(visual_inputs, "local_video_thumbnail", row.get("local_video_thumbnail_path", ""))
+
+    add_remote_visual(visual_inputs, "remote_image", row.get("image_url", ""), use_remote_image)
+    add_remote_visual(visual_inputs, "remote_video_thumbnail", row.get("video_thumbnail_url", ""), use_remote_image)
+
+    if max_visual_inputs > 0:
+        visual_inputs = visual_inputs[:max_visual_inputs]
+
+    if not visual_inputs:
+        return [], "text_only"
+
+    sources = []
+    for _, source in visual_inputs:
+        if source not in sources:
+            sources.append(source)
+    return [url for url, _ in visual_inputs], "+".join(sources)
 
 
 def build_prompt(row, fields_to_fill):
@@ -130,6 +181,8 @@ def build_prompt(row, fields_to_fill):
         "price": row.get("price", ""),
         "rating": row.get("rating", ""),
         "number_of_ratings": row.get("number_of_ratings", ""),
+        "has_product_video": row.get("has_product_video", ""),
+        "video_extraction_status": row.get("video_extraction_status", ""),
     }
 
     return (
@@ -140,7 +193,8 @@ def build_prompt(row, fields_to_fill):
         "2. For each requested field, choose exactly one value from its allowed list.\n"
         "3. Do not invent new labels.\n"
         "4. If there is not enough evidence, choose \"unknown\".\n"
-        "5. Use the image if provided. If no image is provided, use text only.\n\n"
+        "5. Use the visual inputs if provided. They may include the product image, video cover, video frames, or video thumbnail.\n"
+        "6. If no visual input is provided, use text only.\n\n"
         f"Product context:\n{json.dumps(product_context, ensure_ascii=False)}\n\n"
         f"Allowed labels:\n{json.dumps(compact_taxonomy, ensure_ascii=False)}\n\n"
         "Return JSON in this format:\n"
@@ -170,11 +224,11 @@ def parse_json_response(text):
     return json.loads(text)
 
 
-def call_glm(client, model, row, fields_to_fill, image_url, temperature):
+def call_glm(client, model, row, fields_to_fill, visual_urls, temperature):
     prompt = build_prompt(row, fields_to_fill)
     content = [{"type": "text", "text": prompt}]
-    if image_url:
-        content.append({"type": "image_url", "image_url": {"url": image_url}})
+    for visual_url in visual_urls:
+        content.append({"type": "image_url", "image_url": {"url": visual_url}})
 
     response = client.chat.completions.create(
         model=model,
@@ -229,7 +283,7 @@ def is_retryable_api_error(error):
     return any(marker in error_text for marker in retryable_markers)
 
 
-def call_glm_with_retries(client, model, row, fields_to_fill, image_url, temperature, max_retries, retry_delay):
+def call_glm_with_retries(client, model, row, fields_to_fill, visual_urls, temperature, max_retries, retry_delay):
     for attempt in range(max_retries + 1):
         try:
             return call_glm(
@@ -237,7 +291,7 @@ def call_glm_with_retries(client, model, row, fields_to_fill, image_url, tempera
                 model=model,
                 row=row,
                 fields_to_fill=fields_to_fill,
-                image_url=image_url,
+                visual_urls=visual_urls,
                 temperature=temperature,
             )
         except Exception as error:
@@ -265,6 +319,12 @@ def main():
     parser.add_argument("--retry-delay", type=float, default=10.0, help="Initial retry delay in seconds")
     parser.add_argument("--temperature", type=float, default=0.0, help="Model temperature")
     parser.add_argument("--no-remote-image", action="store_true", help="Do not use image_url when local image is missing")
+    parser.add_argument(
+        "--max-visual-inputs",
+        type=int,
+        default=3,
+        help="Maximum product/video visual inputs to send to GLM per row. 0 means no limit.",
+    )
     parser.add_argument("--fill-all", action="store_true", help="Ask GLM to relabel all taxonomy fields, not only missing fields")
     parser.add_argument("--dry-run", action="store_true", help="Show rows that would be labeled without calling the API")
     args = parser.parse_args()
@@ -307,7 +367,12 @@ def main():
     print(f"Rows requiring labels: {len(rows_to_label)}")
     if args.dry_run:
         for index, fields in rows_to_label[:10]:
-            print(index, df.loc[index, "product_name"], fields)
+            visual_urls, label_source = row_visual_inputs(
+                df.loc[index],
+                use_remote_image=not args.no_remote_image,
+                max_visual_inputs=args.max_visual_inputs,
+            )
+            print(index, df.loc[index, "product_name"], fields, label_source, f"visual_inputs={len(visual_urls)}")
         return
 
     client = ZhipuAI(api_key=api_key)
@@ -318,7 +383,11 @@ def main():
         start=1,
     ):
         row = df.loc[index]
-        image_url, label_source = row_image_url(row, use_remote_image=not args.no_remote_image)
+        visual_urls, label_source = row_visual_inputs(
+            row,
+            use_remote_image=not args.no_remote_image,
+            max_visual_inputs=args.max_visual_inputs,
+        )
         df.at[index, "glm_model"] = args.model
         df.at[index, "glm_label_source"] = label_source
         try:
@@ -327,7 +396,7 @@ def main():
                 model=args.model,
                 row=row,
                 fields_to_fill=fields_to_fill,
-                image_url=image_url,
+                visual_urls=visual_urls,
                 temperature=args.temperature,
                 max_retries=args.max_retries,
                 retry_delay=args.retry_delay,

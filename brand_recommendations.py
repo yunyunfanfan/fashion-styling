@@ -91,20 +91,20 @@ def product_direction_for_item(item):
     if dimension == "derived_material":
         return f"Prioritize {label} in core products and test adjacent categories where the material supports comfort, durability, or seasonal relevance."
     if dimension == "derived_pattern":
-        return f"Develop {label} surface treatments across relevant products, then validate with social and community sources."
-    return "Translate this signal into a small test collection and validate against other sources."
+        return f"Develop {label} surface treatments across relevant products, then validate with source images, Amazon videos, rank, and review evidence."
+    return "Translate this signal into a small test collection and validate against the curated multi-source evidence table."
 
 
 def brand_recommendation_for_item(item):
     tier_action = "Prioritize this signal in assortment planning, product naming, and campaign visuals."
-    validation = "Validate with TikTok and Telegram before treating it as a cross-platform trend."
+    validation = "Validate it against source image evidence, Amazon video evidence, review-count strength, rank position, and sponsored-placement risk."
     return f"{tier_action} {validation}"
 
 
 def risk_note_for_item(item):
     return (
-        "This signal is based on Amazon search results, which may be affected by sponsored placement, "
-        "platform ranking, keyword choice, and incomplete automatic labels. Treat it as an e-commerce signal, "
+        "This signal is based on curated e-commerce sources, which may be affected by sponsored placement, "
+        "platform ranking, keyword/source choice, and incomplete automatic labels. Treat it as an e-commerce signal, "
         "not a final market truth."
     )
 
@@ -207,7 +207,7 @@ def build_context(recommendations, product_df):
 
 def local_markdown(recommendations, context, markdown_dir):
     lines = [
-        "# Amazon Brand Recommendations",
+        "# Multi-Source Brand Recommendations",
         "",
         "## Tier Rules",
         "",
@@ -292,12 +292,12 @@ def glm_markdown(context, model, api_key_env, markdown_dir):
 
     prompt = (
         "You are writing a fashion trend intelligence report for a university data curation project.\n"
-        "Use the provided Amazon trend context to generate a polished brand recommendations markdown report.\n"
+        "Use the provided multi-source trend context to generate a polished brand recommendations markdown report.\n"
         "Requirements:\n"
         "1. Explain the tier rules.\n"
         "2. Convert multi-dimensional Strong Trend labels into concrete product directions.\n"
         "3. Use evidence from trend scores, item counts, query coverage, ratings, and sample products.\n"
-        "4. Mention that Amazon data is one e-commerce source and should later be validated with TikTok and Telegram.\n"
+        "4. Mention that the project uses multiple public e-commerce sources; Amazon contributes text, image, video, and context fields, while Brixton contributes text, image, and context fields.\n"
         "5. Do not invent labels outside the context.\n"
         "6. Include product images using Markdown image syntax. Use each product's display_image_path field when available.\n"
         "7. For each trend section, use exactly these subheadings:\n"

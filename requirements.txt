@@ -1,4 +1,6 @@
 beautifulsoup4>=4.12
+imageio>=2.34
+imageio-ffmpeg>=0.4.9
 lxml>=5.0
 requests>=2.31
 sniffio>=1.3

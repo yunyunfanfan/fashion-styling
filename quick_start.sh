@@ -3,8 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-echo "== Amazon Fashion Pipeline: Quick Start =="
-echo "This runs a small CSV-only demo with 3 keywords and 8 products per keyword."
+echo "== Multi-Source Fashion Pipeline: Quick Start =="
+echo "This runs a small demo with Amazon search data plus a Brixton image sample."
 echo
 
 python -m pip install -r requirements.txt
@@ -25,7 +25,20 @@ python scrape_latest_amazon.py \
   --no-images \
   --out-dir "${SCRAPE_DIR}"
 
-BATCH_CSV="$(ls -t "${SCRAPE_DIR}"/amazon_fashion_batch_*.csv | head -1)"
+AMAZON_CSV="$(ls -t "${SCRAPE_DIR}"/amazon_fashion_batch_*.csv | head -1)"
+echo "Amazon CSV: ${AMAZON_CSV}"
+
+echo
+echo "== Step 1b: Scrape Brixton image sample =="
+BRIXTON_DIR="${SCRAPE_DIR}/brixton"
+python brixton/brixton_amazon_format_scraper.py \
+  --sample-images 3 \
+  --out-dir "${BRIXTON_DIR}"
+BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_sample_with_images_*.csv | head -1)"
+echo "Brixton CSV: ${BRIXTON_CSV}"
+
+BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_quick_start_${RUN_ID}.csv"
+python combine_source_csvs.py "${AMAZON_CSV}" "${BRIXTON_CSV}" --output-csv "${BATCH_CSV}"
 echo "Batch CSV: ${BATCH_CSV}"
 
 echo
@@ -47,6 +60,12 @@ python brand_recommendations.py \
 
 echo
 echo "== Done =="
+echo "Amazon data:"
+echo "  ${AMAZON_CSV}"
+echo "Brixton data:"
+echo "  ${BRIXTON_CSV}"
+echo "Combined data:"
+echo "  ${BATCH_CSV}"
 echo "Trend report:"
 echo "  ${ANALYSIS_DIR}/trend_analysis_report.md"
 echo "Brand recommendations:"

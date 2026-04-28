@@ -10,7 +10,8 @@
 
 | File | Purpose |
 | --- | --- |
-| `scrape_latest_amazon.py` | 批量抓取 Amazon fashion 商品数据 |
+| `scrape_latest_amazon.py` | 批量抓取 Amazon fashion 商品数据；可选进入商品详情页提取视频字段 |
+| `extract_amazon_product_video.py` | 单商品视频提取；有视频则记录/下载，无视频则写 `no_video` 占位 |
 | `clean_amazon_data.py` | 清洗 Amazon 数据，删除缺少评分/评论数量的商品，并导出人工补标模板 |
 | `fill_labels_with_glm.py` | 使用 GLM 视觉/文本模型补全 `derived_*` 标签 |
 | `analyze_trends.py` | 使用 CRITIC 方法计算趋势分数 |
@@ -93,6 +94,24 @@ python scrape_latest_amazon.py
 
 ```bash
 python scrape_latest_amazon.py --no-images
+```
+
+同时检查商品详情页视频字段：
+
+```bash
+python scrape_latest_amazon.py --query "leather jacket" --pages 1 --max-items 5 --no-images --include-videos --max-videos 2
+```
+
+下载少量视频样本：
+
+```bash
+python scrape_latest_amazon.py --query "leather jacket" --pages 1 --max-items 1 --no-images --include-videos --download-videos --max-videos 1
+```
+
+单独测试一个 ASIN 的视频：
+
+```bash
+python extract_amazon_product_video.py B0DPVTDBJB --out-dir scraped/product_videos/test_B0DPVTDBJB
 ```
 
 ### 2. Clean Data

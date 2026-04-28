@@ -4,17 +4,25 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 USE_IMAGES=1
+USE_BRIXTON=1
+USE_VIDEOS=0
+DOWNLOAD_VIDEOS=0
 USE_GLM_LABELS=0
 USE_GLM_REPORT=0
 MODEL="${GLM_MODEL:-glm-4.6v-flash}"
 ITEMS_PER_QUERY="${ITEMS_PER_QUERY:-50}"
 PAGES="${PAGES:-2}"
 DELAY="${DELAY:-2.0}"
+MAX_VIDEOS="${MAX_VIDEOS:-0}"
+VIDEO_FRAME_COUNT="${VIDEO_FRAME_COUNT:-3}"
 
 for arg in "$@"; do
   case "$arg" in
     --no-images)
       USE_IMAGES=0
+      ;;
+    --no-brixton)
+      USE_BRIXTON=0
       ;;
     --use-glm-labels)
       USE_GLM_LABELS=1
@@ -22,12 +30,19 @@ for arg in "$@"; do
     --use-glm-report)
       USE_GLM_REPORT=1
       ;;
+    --include-videos)
+      USE_VIDEOS=1
+      ;;
+    --download-videos)
+      USE_VIDEOS=1
+      DOWNLOAD_VIDEOS=1
+      ;;
     --text-only-glm)
       MODEL="glm-4-flash-250414"
       ;;
     *)
       echo "Unknown argument: $arg" >&2
-      echo "Supported: --no-images --use-glm-labels --use-glm-report --text-only-glm" >&2
+      echo "Supported: --no-images --no-brixton --include-videos --download-videos --use-glm-labels --use-glm-report --text-only-glm" >&2
       exit 1
       ;;
   esac
@@ -38,6 +53,11 @@ echo "Items per query: ${ITEMS_PER_QUERY}"
 echo "Pages per query: ${PAGES}"
 echo "Request delay: ${DELAY}s"
 echo "Download images: ${USE_IMAGES}"
+echo "Include Brixton source: ${USE_BRIXTON}"
+echo "Include videos: ${USE_VIDEOS}"
+echo "Download videos and extract frames: ${DOWNLOAD_VIDEOS}"
+echo "Max videos per query: ${MAX_VIDEOS}"
+echo "Video frames per video: ${VIDEO_FRAME_COUNT}"
 echo "Use GLM labels: ${USE_GLM_LABELS}"
 echo "Use GLM report: ${USE_GLM_REPORT}"
 echo "GLM model: ${MODEL}"
@@ -59,9 +79,34 @@ SCRAPE_ARGS=(
 if [[ "${USE_IMAGES}" -eq 0 ]]; then
   SCRAPE_ARGS+=(--no-images)
 fi
+if [[ "${USE_VIDEOS}" -eq 1 ]]; then
+  SCRAPE_ARGS+=(--include-videos --max-videos "${MAX_VIDEOS}")
+fi
+if [[ "${DOWNLOAD_VIDEOS}" -eq 1 ]]; then
+  SCRAPE_ARGS+=(--download-videos --video-frame-count "${VIDEO_FRAME_COUNT}")
+fi
 python scrape_latest_amazon.py "${SCRAPE_ARGS[@]}"
 
-BATCH_CSV="$(ls -t "${SCRAPE_DIR}"/amazon_fashion_batch_*.csv | head -1)"
+AMAZON_CSV="$(ls -t "${SCRAPE_DIR}"/amazon_fashion_batch_*.csv | head -1)"
+echo "Amazon CSV: ${AMAZON_CSV}"
+
+if [[ "${USE_BRIXTON}" -eq 1 ]]; then
+  echo
+  echo "== Step 1b: Scrape Brixton data =="
+  BRIXTON_DIR="${SCRAPE_DIR}/brixton"
+  BRIXTON_ARGS=(--out-dir "${BRIXTON_DIR}")
+  if [[ "${USE_IMAGES}" -eq 1 ]]; then
+    BRIXTON_ARGS+=(--download-images)
+  fi
+  python brixton/brixton_amazon_format_scraper.py "${BRIXTON_ARGS[@]}"
+  BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_amazon_format_*.csv | head -1)"
+  echo "Brixton CSV: ${BRIXTON_CSV}"
+
+  BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_batch_${RUN_ID}.csv"
+  python combine_source_csvs.py "${AMAZON_CSV}" "${BRIXTON_CSV}" --output-csv "${BATCH_CSV}"
+else
+  BATCH_CSV="${AMAZON_CSV}"
+fi
 echo "Batch CSV: ${BATCH_CSV}"
 
 echo
@@ -118,6 +163,12 @@ python brand_recommendations.py "${RECOMMEND_ARGS[@]}"
 
 echo
 echo "== Done =="
+echo "Amazon data:"
+echo "  ${AMAZON_CSV}"
+if [[ "${USE_BRIXTON}" -eq 1 ]]; then
+  echo "Brixton data:"
+  echo "  ${BRIXTON_CSV}"
+fi
 echo "Scraped data:"
 echo "  ${BATCH_CSV}"
 echo "Cleaned data:"

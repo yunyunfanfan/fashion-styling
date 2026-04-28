@@ -2,21 +2,21 @@
 
 ## 1. Project Purpose
 
-这个文件夹是课程项目中的 Amazon 电商数据采集与清洗模块。
+这个文件夹是课程项目中的多源电商数据采集与清洗模块。
 
-它的目标不是单纯保存商品列表，而是为 **Fashion Trend Intelligence** 项目提供一个公开电商数据源，用来观察当前市场中正在被展示和销售的 fashion products。
+它的目标不是单纯保存商品列表，而是为 **Fashion Trend Intelligence** 项目提供公开电商数据源，用来观察当前市场中正在被展示和销售的 fashion products，并补充商品图片和 Amazon 商品详情页视频等视觉证据。
 
-在整个大项目中，Amazon 数据主要承担三个作用：
+在当前项目中，Amazon 数据承担四个作用：
 
 1. 提供商品级市场信号
 2. 提供商品图片和商品 metadata
-3. 为后续 trend analysis 提供价格、评分、评论数量和视觉标签
+3. 提供商品详情页视频、视频缩略图、视频封面抽帧、若干视频帧和 `no_video` 占位字段
+4. 为后续 trend analysis 提供价格、评分、评论数量、排名和视觉标签
 
 ## 2. Connection to Homework Requirements
 
 Homework 要求项目关注：
 
-- multiple data sources
 - text, image, video, context 等多模态数据
 - documented curation pipeline
 - metadata cleaning
@@ -25,15 +25,16 @@ Homework 要求项目关注：
 - ethics and risk statement
 - brand recommendations
 
-Amazon 模块对应这些要求：
+Amazon 单源多模态 pipeline 对应这些要求：
 
 | Homework Requirement | Amazon Pipeline Response |
 | --- | --- |
-| Multiple data sources | Amazon 作为 e-commerce source |
+| Public data source | Amazon search result pages, Amazon product detail pages, and Brixton product data |
 | Text data | 商品名、品牌名、搜索关键词 |
 | Image data | 商品图片 URL，可下载本地图片 |
+| Video data | Amazon 商品详情页视频 URL、视频缩略图、本地 mp4、视频封面、视频帧；非视频来源用 `not_applicable` / `no_video` |
 | Context data | 价格、评分、评论数量、搜索排名 |
-| Metadata | ASIN、source、query、scrape date、product URL |
+| Metadata | ASIN、source、query、scrape date、product URL、video extraction status |
 | Curation pipeline | 爬取、清洗、过滤、补标签、导出报告 |
 | AI-assisted component | GLM 视觉/文本模型补全 fashion labels |
 | Trend signals | material、pattern、style、scene、rating、rank |
@@ -73,7 +74,10 @@ https://www.amazon.in/s?k=denim+jacket&page=1
 
 | File | Purpose |
 | --- | --- |
-| `scrape_latest_amazon.py` | 抓取 Amazon 当前搜索结果 |
+| `scrape_latest_amazon.py` | 抓取 Amazon 当前搜索结果；可选进入详情页提取视频字段、下载视频并抽帧 |
+| `extract_amazon_product_video.py` | 单商品视频提取；有视频则记录/下载并抽取封面和帧，无视频则写 `no_video` |
+| `brixton/brixton_amazon_format_scraper.py` | 抓取 Brixton 商品和评论摘要，导出与 Amazon 主字段对齐的 CSV |
+| `combine_source_csvs.py` | 合并 Amazon-format 多源 CSV，并为非 Amazon 来源补齐视频占位字段 |
 | `clean_amazon_data.py` | 清洗数据，删除缺少评分/评论数的商品，导出补标模板 |
 | `fill_labels_with_glm.py` | 调用 GLM 视觉/文本模型补全标签 |
 
@@ -117,7 +121,11 @@ requests
 beautifulsoup4
 lxml
 zhipuai
+imageio
+imageio-ffmpeg
 ```
+
+视频抽帧会优先使用本机 `ffmpeg` / `ffprobe`；如果没有系统 `ffmpeg`，会使用 `imageio-ffmpeg` 作为 Python 依赖兜底。两者都不可用时，脚本会保留视频下载结果，并把 `video_frame_extraction_status` 写成 `video_frame_dependency_missing`。
 
 ## 6. Quick Start Scripts
 
@@ -130,7 +138,7 @@ run_full_pipeline.sh
 
 ### Quick Start
 
-快速验证整条流程，默认只抓 3 个关键词、每个 8 条商品，不下载图片，不调用 GLM：
+快速验证整条流程，默认抓取 Amazon 3 个关键词、每个 8 条商品；同时抓取 3 条 Brixton 商品样本并下载本地图片，然后合并成一张多源 CSV。不调用 GLM：
 
 ```bash
 ./quick_start.sh
@@ -146,10 +154,18 @@ analysis/quick_start_<timestamp>/
 它会自动运行：
 
 ```text
-1. scrape_latest_amazon.py
-2. clean_amazon_data.py
-3. analyze_trends.py
-4. brand_recommendations.py
+1. `scrape_latest_amazon.py` 抓取 Amazon 小样本，不下载 Amazon 图片
+2. `brixton/brixton_amazon_format_scraper.py --sample-images 3` 抓取 Brixton 图片样本
+3. `combine_source_csvs.py` 合并 Amazon + Brixton，并为 Brixton 补齐视频占位字段
+4. `clean_amazon_data.py`
+5. `analyze_trends.py`
+6. `brand_recommendations.py`
+```
+
+Quick Start 的合并表会保存为：
+
+```text
+scraped/quick_start_<timestamp>/fashion_multisource_quick_start_<timestamp>.csv
 ```
 
 ### Full Pipeline
@@ -166,6 +182,8 @@ analysis/quick_start_<timestamp>/
 抓取 12 个关键词
 每个关键词 50 条商品
 下载本地图片
+抓取 Brixton 作为第二个公开电商来源
+合并 Amazon + Brixton 为多源总表
 清洗数据
 导出人工补标模板
 计算 CRITIC 趋势分数
@@ -173,10 +191,36 @@ analysis/quick_start_<timestamp>/
 不调用 GLM
 ```
 
+如果只想跑 Amazon 单源：
+
+```bash
+./run_full_pipeline.sh --no-brixton
+```
+
 只生成 CSV，不下载图片：
 
 ```bash
 ./run_full_pipeline.sh --no-images
+```
+
+提取商品详情页视频 metadata：
+
+```bash
+./run_full_pipeline.sh --include-videos
+```
+
+视频只会用于 Amazon 来源；Brixton 行会保留 `not_applicable` / `no_video` 占位字段，方便后续清洗、GLM 和分析脚本共用同一张表。
+
+下载视频，并自动截取视频封面和 3 帧图片：
+
+```bash
+./run_full_pipeline.sh --download-videos
+```
+
+可通过环境变量限制视频数量和抽帧数量：
+
+```bash
+MAX_VIDEOS=5 VIDEO_FRAME_COUNT=4 ./run_full_pipeline.sh --download-videos
 ```
 
 使用 GLM 补全标签：
@@ -270,6 +314,27 @@ scraped/images_<query>_<timestamp>/0001_<asin>.jpg
 
 并在 CSV 的 `local_image_path` 字段中记录路径。品牌建议 Markdown 会优先使用 `local_image_path`；如果本地图片不存在，才回退到 `image_url`。
 
+如果需要进入商品详情页检查视频：
+
+```bash
+python scrape_latest_amazon.py --include-videos
+```
+
+如果需要下载视频，并在后续数据处理中把视频转成可复用图片证据：
+
+```bash
+python scrape_latest_amazon.py --include-videos --download-videos
+```
+
+当发现视频并成功下载时，脚本会：
+
+```text
+1. 保存原始 mp4 到 scraped/videos_<query>_<timestamp>/
+2. 抽取第 0 秒作为 local_video_cover_path
+3. 按视频时长均匀截取若干帧，写入 local_video_frame_paths
+4. 用 video_frame_extraction_status 记录 extracted / video_frame_dependency_missing / extract_failed
+```
+
 如果想自定义关键词：
 
 ```bash
@@ -307,6 +372,16 @@ derived_pattern
 product_url
 image_url
 local_image_path
+has_product_video
+video_count_detected
+video_thumbnail_url
+video_url
+local_video_path
+local_video_thumbnail_path
+local_video_cover_path
+local_video_frame_paths
+video_frame_extraction_status
+video_extraction_status
 ```
 
 重要字段说明：
@@ -321,6 +396,9 @@ local_image_path
 | `rating_numeric` | 可计算评分 |
 | `number_of_ratings_numeric` | 可计算评论/评分数量 |
 | `image_url` | 商品图片 URL |
+| `local_video_cover_path` | 从下载视频第 0 秒截取的视频封面图片 |
+| `local_video_frame_paths` | 从下载视频中均匀截取的若干帧，多个路径用 `|` 分隔 |
+| `video_frame_extraction_status` | 视频抽帧状态，例如 `extracted`、`video_frame_dependency_missing`、`extract_failed` |
 | `derived_*` | 初始 fashion 标签 |
 
 ## Step 3: Clean Amazon Data
@@ -481,10 +559,18 @@ python fill_labels_with_glm.py scraped/cleaned/amazon_fashion_batch_20260426_211
   --model glm-4.6v-flash
 ```
 
-如果没有本地图片，脚本会检查 `image_url`。如果你不想使用远程图片，只想基于文本预测：
+GLM 补标签会按顺序使用可用视觉证据：`local_image_path`、`local_video_cover_path`、`local_video_frame_paths`、`local_video_thumbnail_path`、`image_url`、`video_thumbnail_url`。默认每行最多发送 3 个视觉输入，`glm_label_source` 会记录实际使用了哪些来源。
+
+如果不想使用远程图片或远程视频缩略图，只想使用本地媒体和文本：
 
 ```bash
 python fill_labels_with_glm.py scraped/cleaned/amazon_fashion_batch_20260426_211640_rating_cleaned.csv --no-remote-image
+```
+
+如果想调整每行传给 GLM 的视觉输入数量：
+
+```bash
+python fill_labels_with_glm.py scraped/cleaned/amazon_fashion_batch_20260426_211640_rating_cleaned.csv --max-visual-inputs 5
 ```
 
 GLM 输出仍然必须从 `LABEL_TAXONOMY.md` 的固定范围中选择。
@@ -937,7 +1023,7 @@ derived_pattern: solid, floral
 - 保留 `scrape_date`
 - 使用固定 taxonomy
 - 允许人工或 GLM 辅助补标
-- 后续结合 TikTok 和 Telegram 等其他来源交叉验证
+- 在报告中说明多源电商数据限制，并保留 `source`、`is_sponsored`、`query`、`scrape_date`、`video_extraction_status` 等字段辅助解释平台偏差
 
 ## 11. Expected Outputs for Assignment
 
@@ -946,6 +1032,8 @@ derived_pattern: solid, floral
 ```text
 raw Amazon product dataset
 cleaned Amazon product dataset
+Amazon product video metadata
+small downloaded product video sample
 manual label template
 cleaning report
 label taxonomy

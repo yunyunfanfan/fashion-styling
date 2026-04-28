@@ -10,6 +10,8 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+from extract_amazon_product_video import PLACEHOLDER, extract_product_video
+
 
 BASE_URL = "https://www.amazon.in"
 DEFAULT_HEADERS = {
@@ -63,6 +65,16 @@ FIELDNAMES = [
     "product_url",
     "image_url",
     "local_image_path",
+    "has_product_video",
+    "video_count_detected",
+    "video_thumbnail_url",
+    "video_url",
+    "local_video_path",
+    "local_video_thumbnail_path",
+    "local_video_cover_path",
+    "local_video_frame_paths",
+    "video_frame_extraction_status",
+    "video_extraction_status",
 ]
 
 
@@ -262,6 +274,16 @@ def parse_search_page(html, query, page):
                 "product_url": product_url,
                 "image_url": image_url,
                 "local_image_path": "",
+                "has_product_video": "not_checked",
+                "video_count_detected": "",
+                "video_thumbnail_url": PLACEHOLDER,
+                "video_url": PLACEHOLDER,
+                "local_video_path": PLACEHOLDER,
+                "local_video_thumbnail_path": PLACEHOLDER,
+                "local_video_cover_path": PLACEHOLDER,
+                "local_video_frame_paths": PLACEHOLDER,
+                "video_frame_extraction_status": "not_checked",
+                "video_extraction_status": "not_checked",
             }
         )
 
@@ -337,6 +359,70 @@ def download_images_for_rows(session, rows, image_dir, delay):
             row["local_image_path"] = "download_failed"
 
 
+def enrich_rows_with_product_videos(
+    session,
+    rows,
+    video_dir,
+    download_videos,
+    delay,
+    max_videos,
+    extract_video_frames,
+    video_frame_count,
+):
+    video_dir.mkdir(parents=True, exist_ok=True)
+    checked = 0
+    downloaded_or_found = 0
+
+    for row in tqdm(rows, desc=f"Checking {video_dir.name}", unit="product"):
+        if max_videos and downloaded_or_found >= max_videos:
+            row["has_product_video"] = "not_checked"
+            row["video_extraction_status"] = "video_limit_reached"
+            continue
+
+        try:
+            video_record = extract_product_video(
+                session=session,
+                asin_or_url=row["asin"] or row["product_url"],
+                out_dir=video_dir,
+                download=download_videos,
+                delay=delay,
+                extract_frames=extract_video_frames,
+                frame_count=video_frame_count,
+            )
+            for field in [
+                "has_product_video",
+                "video_count_detected",
+                "video_thumbnail_url",
+                "video_url",
+                "local_video_path",
+                "local_video_thumbnail_path",
+                "local_video_cover_path",
+                "local_video_frame_paths",
+                "video_frame_extraction_status",
+                "video_extraction_status",
+            ]:
+                row[field] = video_record[field]
+            checked += 1
+            if video_record["has_product_video"] == "yes":
+                downloaded_or_found += 1
+        except (requests.RequestException, ValueError) as error:
+            print(f"Could not extract video for {row['asin']}: {error}")
+            row["has_product_video"] = "unknown"
+            row["video_count_detected"] = ""
+            row["video_thumbnail_url"] = PLACEHOLDER
+            row["video_url"] = PLACEHOLDER
+            row["local_video_path"] = PLACEHOLDER
+            row["local_video_thumbnail_path"] = PLACEHOLDER
+            row["local_video_cover_path"] = PLACEHOLDER
+            row["local_video_frame_paths"] = PLACEHOLDER
+            row["video_frame_extraction_status"] = "extract_failed"
+            row["video_extraction_status"] = "extract_failed"
+
+        time.sleep(delay)
+
+    print(f"Checked videos for {checked} products; found videos for {downloaded_or_found}.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape current Amazon India search results.")
     parser.add_argument("--query", help="Single search keyword, for example: bucket hat")
@@ -350,6 +436,33 @@ def main():
     parser.add_argument("--delay", type=float, default=2.0, help="Delay between requests in seconds")
     parser.add_argument("--out-dir", default="scraped", help="Output directory")
     parser.add_argument("--no-images", action="store_true", help="Only save CSV, do not download images")
+    parser.add_argument(
+        "--include-videos",
+        action="store_true",
+        help="Visit product detail pages and extract product video metadata.",
+    )
+    parser.add_argument(
+        "--download-videos",
+        action="store_true",
+        help="Download product videos when --include-videos is enabled.",
+    )
+    parser.add_argument(
+        "--no-video-frames",
+        action="store_true",
+        help="Do not extract cover/frame images from downloaded videos.",
+    )
+    parser.add_argument(
+        "--video-frame-count",
+        type=int,
+        default=3,
+        help="Number of inner frames to extract from each downloaded video.",
+    )
+    parser.add_argument(
+        "--max-videos",
+        type=int,
+        default=0,
+        help="Maximum number of products with videos to keep checking/downloading per query. 0 means no limit.",
+    )
     parser.add_argument(
         "--single-only",
         action="store_true",
@@ -391,6 +504,19 @@ def main():
         else:
             for row in query_rows:
                 row["local_image_path"] = "not_downloaded"
+
+        if args.include_videos:
+            video_dir = output_dir / f"videos_{query_slug}_{timestamp}"
+            enrich_rows_with_product_videos(
+                session=session,
+                rows=query_rows,
+                video_dir=video_dir,
+                download_videos=args.download_videos,
+                delay=args.delay,
+                max_videos=args.max_videos,
+                extract_video_frames=args.download_videos and not args.no_video_frames,
+                video_frame_count=args.video_frame_count,
+            )
 
         query_csv = output_dir / f"amazon_{query_slug}_{timestamp}.csv"
         save_rows(query_rows, query_csv)
