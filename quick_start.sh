@@ -4,13 +4,13 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "== Multi-Source Fashion Pipeline: Quick Start =="
-echo "This runs a small query-matched demo with Amazon and Brixton data."
+echo "This runs a small multi-style, query-matched demo with Amazon and Brixton data."
 echo
 
 python -m pip install -r requirements.txt
 
-QUERIES="bucket hat,denim jacket,floral dress"
-ITEMS_PER_QUERY=8
+QUERIES="bucket hat,denim jacket,floral dress,cargo pants,linen shirt,platform shoes"
+ITEMS_PER_QUERY=6
 PAGES=1
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
 SCRAPE_DIR="scraped/quick_start_${RUN_ID}"

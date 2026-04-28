@@ -138,7 +138,7 @@ run_full_pipeline.sh
 
 ### Quick Start
 
-快速验证整条流程，默认用同一批关键词抓取 Amazon 和 Brixton：3 个关键词、每个来源每个关键词最多 8 条商品。Amazon quick start 不下载图片；Brixton 会为匹配到的商品下载本地图片，然后合并成一张多源 CSV。不调用 GLM：
+快速验证整条流程，默认用同一批多元风格关键词抓取 Amazon 和 Brixton：6 个关键词、每个来源每个关键词最多 6 条商品。关键词覆盖配饰、外套、连衣裙、裤装、衬衫和鞋履。Amazon quick start 不下载图片；Brixton 会为匹配到的商品下载本地图片，然后合并成一张多源 CSV。不调用 GLM：
 
 ```bash
 ./quick_start.sh
