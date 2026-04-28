@@ -16,10 +16,23 @@ STAMPED_WIDGET_URL = "https://stamped.io/api/widget"
 STAMPED_API_KEY = "pubkey-050MQKbS9PC61MxYCL1452FN5j50Xt"
 STAMPED_STORE_URL = "197746"
 CURRENCY = "USD"
-QUERY = "fashion"
 LIMIT = 250
 REVIEW_WORKERS = 8
 PLACEHOLDER = "no_video"
+DEFAULT_FASHION_QUERIES = [
+    "bucket hat",
+    "denim jacket",
+    "floral dress",
+    "striped shirt",
+    "oversized hoodie",
+    "cargo pants",
+    "knit cardigan",
+    "platform shoes",
+    "linen shirt",
+    "pleated skirt",
+    "leather jacket",
+    "wide leg jeans",
+]
 
 COLUMNS = [
     "scrape_date",
@@ -173,6 +186,47 @@ def normalize_text(value):
     if isinstance(value, list):
         value = " ".join(str(item) for item in value)
     return re.sub(r"\s+", " ", str(value or "")).strip().lower()
+
+
+def safe_name(value):
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def query_tokens(query):
+    return [token for token in re.findall(r"[a-z0-9]+", query.lower()) if token]
+
+
+def product_search_text(product):
+    return normalize_text(
+        [
+            product.get("title", ""),
+            product.get("product_type", ""),
+            product.get("vendor", ""),
+            product.get("handle", ""),
+            product.get("tags") or [],
+        ]
+    )
+
+
+def query_score(item, query):
+    text = product_search_text(item["product"])
+    tokens = query_tokens(query)
+    if not tokens:
+        return 0
+    token_hits = sum(1 for token in tokens if re.search(rf"\b{re.escape(token)}\b", text))
+    phrase_bonus = len(tokens) if query.lower() in text else 0
+    return token_hits + phrase_bonus
+
+
+def select_items_for_query(items, query, max_items):
+    scored = []
+    for original_index, item in enumerate(items):
+        score = query_score(item, query)
+        if score > 0:
+            scored.append((score, original_index, item))
+    scored.sort(key=lambda value: (-value[0], value[1]))
+    selected = [item for _, _, item in scored]
+    return selected[:max_items] if max_items else selected
 
 
 def first_match(text, terms):
@@ -339,7 +393,7 @@ def fetch_all_review_summaries(items):
     return review_by_id, errors
 
 
-def make_row(scrape_date, item, result_rank, review):
+def make_row(scrape_date, query, item, result_rank, review):
     product = item["product"]
     variant = select_variant(product)
     tags = product.get("tags") or []
@@ -357,7 +411,7 @@ def make_row(scrape_date, item, result_rank, review):
     return {
         "scrape_date": scrape_date,
         "source": SOURCE,
-        "query": QUERY,
+        "query": query,
         "page": item["page"],
         "page_position": item["page_position"],
         "result_rank": result_rank,
@@ -401,38 +455,91 @@ def write_csv(path, rows, columns):
         writer.writerows(rows)
 
 
-def main(output_dir, download_images=False):
+def download_image_for_item(session, item, image_dir, image_cache, errors):
+    product = item["product"]
+    product_id = product.get("id")
+    if product_id in image_cache:
+        return image_cache[product_id]
+    try:
+        image_path = download_image(session, product_image(product), image_dir, product_id)
+    except requests.RequestException as exc:
+        image_path = "download_failed"
+        errors.append({"product_id": product_id, "error": f"image {type(exc).__name__}: {str(exc)[:160]}"})
+    image_cache[product_id] = image_path
+    return image_path
+
+
+def unique_items(items):
+    seen = set()
+    result = []
+    for item in items:
+        product_id = item["product"].get("id")
+        if product_id in seen:
+            continue
+        seen.add(product_id)
+        result.append(item)
+    return result
+
+
+def parse_queries(args):
+    if args.query:
+        return [args.query], args.max_items
+    if args.queries:
+        queries = [query.strip() for query in args.queries.split(",") if query.strip()]
+    else:
+        queries = DEFAULT_FASHION_QUERIES
+    return queries, args.items_per_query
+
+
+def main(output_dir, queries, items_per_query, download_images=False, single_only=False):
     output_dir.mkdir(parents=True, exist_ok=True)
     image_dir = output_dir / "images"
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     scrape_date = datetime.now().replace(microsecond=0).isoformat()
 
     items = fetch_products()
-    review_by_id, errors = fetch_all_review_summaries(items)
+    selected_by_query = {
+        query: select_items_for_query(items, query, items_per_query)
+        for query in queries
+    }
+    selected_items = unique_items(item for query_items in selected_by_query.values() for item in query_items)
+    review_by_id, errors = fetch_all_review_summaries(selected_items)
     session = make_session() if download_images else None
+    image_cache = {}
+    batch_rows = []
 
-    rows = []
-    for index, item in enumerate(items, start=1):
-        if download_images:
-            product = item["product"]
-            product_id = product.get("id")
-            try:
-                item["local_image_path"] = download_image(session, product_image(product), image_dir, product_id)
-            except requests.RequestException as exc:
-                item["local_image_path"] = "download_failed"
-                errors.append({"product_id": product_id, "error": f"image {type(exc).__name__}: {str(exc)[:160]}"})
-        product_id = item["product"].get("id")
-        rows.append(make_row(scrape_date, item, index, review_by_id.get(product_id, {})))
+    for query, query_items in selected_by_query.items():
+        query_rows = []
+        for result_rank, item in enumerate(query_items, start=1):
+            product_id = item["product"].get("id")
+            row_item = dict(item)
+            if download_images:
+                row_item["local_image_path"] = download_image_for_item(
+                    session=session,
+                    item=item,
+                    image_dir=image_dir,
+                    image_cache=image_cache,
+                    errors=errors,
+                )
+            query_rows.append(make_row(scrape_date, query, row_item, result_rank, review_by_id.get(product_id, {})))
 
-    data_path = output_dir / f"brixton_amazon_format_{stamp}.csv"
+        query_csv = output_dir / f"brixton_{safe_name(query)}_{stamp}.csv"
+        write_csv(query_csv, query_rows, COLUMNS)
+        print(f"Saved {len(query_rows)} products for {query!r} to {query_csv}")
+        batch_rows.extend(query_rows)
+
+    data_path = output_dir / f"brixton_fashion_batch_{stamp}.csv"
     error_path = output_dir / f"brixton_review_errors_{stamp}.csv"
-    write_csv(data_path, rows, COLUMNS)
+    if len(queries) > 1 and not single_only:
+        write_csv(data_path, batch_rows, COLUMNS)
+    elif queries:
+        data_path = output_dir / f"brixton_{safe_name(queries[0])}_{stamp}.csv"
     write_csv(error_path, errors, ["product_id", "error"])
 
-    rated_count = sum(1 for row in rows if row["rating_numeric"])
+    rated_count = sum(1 for row in batch_rows if row["rating_numeric"])
     print(f"data_csv={data_path.resolve()}")
     print(f"error_csv={error_path.resolve()}")
-    print(f"rows={len(rows)}")
+    print(f"rows={len(batch_rows)}")
     print(f"rated_products={rated_count}")
     print(f"review_errors={len(errors)}")
     print(f"download_images={download_images}")
@@ -456,7 +563,7 @@ def sample_images(sample_size=5, output_dir=Path("brixton_scrape")):
         product_id = product.get("id")
         image_path = download_image(session, product_image(product), image_dir, product_id)
         item["local_image_path"] = image_path
-        rows.append(make_row(scrape_date, item, index, review_by_id.get(product_id, {})))
+        rows.append(make_row(scrape_date, "sample", item, index, review_by_id.get(product_id, {})))
 
     data_path = output_dir / f"brixton_sample_with_images_{stamp}.csv"
     error_path = output_dir / f"brixton_sample_review_errors_{stamp}.csv"
@@ -475,13 +582,32 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--query", help="Single search keyword, for example: bucket hat")
+    parser.add_argument(
+        "--queries",
+        help="Comma-separated keywords for batch mode. Defaults to built-in fashion keywords.",
+    )
+    parser.add_argument("--max-items", type=int, default=0, help="Maximum products to keep for --query. 0 means no limit")
+    parser.add_argument("--items-per-query", type=int, default=50, help="Products to keep for each keyword in batch mode")
     parser.add_argument("--sample-images", type=int, default=0, help="Download image samples instead of running full scrape.")
     parser.add_argument("--out-dir", default="brixton_scrape", help="Directory for Brixton CSV outputs.")
     parser.add_argument("--download-images", action="store_true", help="Download Brixton product images during full scrape.")
+    parser.add_argument(
+        "--single-only",
+        action="store_true",
+        help="Only save the per-query CSV files, not the combined batch CSV.",
+    )
     args = parser.parse_args()
     output_dir = Path(args.out_dir)
 
     if args.sample_images:
         sample_images(args.sample_images, output_dir=output_dir)
     else:
-        main(output_dir=output_dir, download_images=args.download_images)
+        queries, items_per_query = parse_queries(args)
+        main(
+            output_dir=output_dir,
+            queries=queries,
+            items_per_query=items_per_query,
+            download_images=args.download_images,
+            single_only=args.single_only,
+        )

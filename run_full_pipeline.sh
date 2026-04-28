@@ -99,7 +99,7 @@ if [[ "${USE_BRIXTON}" -eq 1 ]]; then
     BRIXTON_ARGS+=(--download-images)
   fi
   python brixton/brixton_amazon_format_scraper.py "${BRIXTON_ARGS[@]}"
-  BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_amazon_format_*.csv | head -1)"
+  BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_fashion_batch_*.csv | head -1)"
   echo "Brixton CSV: ${BRIXTON_CSV}"
 
   BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_batch_${RUN_ID}.csv"

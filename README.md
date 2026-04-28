@@ -138,7 +138,7 @@ run_full_pipeline.sh
 
 ### Quick Start
 
-快速验证整条流程，默认抓取 Amazon 3 个关键词、每个 8 条商品；同时抓取 3 条 Brixton 商品样本并下载本地图片，然后合并成一张多源 CSV。不调用 GLM：
+快速验证整条流程，默认用同一批关键词抓取 Amazon 和 Brixton：3 个关键词、每个来源每个关键词最多 8 条商品。Amazon quick start 不下载图片；Brixton 会为匹配到的商品下载本地图片，然后合并成一张多源 CSV。不调用 GLM：
 
 ```bash
 ./quick_start.sh
@@ -154,8 +154,8 @@ analysis/quick_start_<timestamp>/
 它会自动运行：
 
 ```text
-1. `scrape_latest_amazon.py` 抓取 Amazon 小样本，不下载 Amazon 图片
-2. `brixton/brixton_amazon_format_scraper.py --sample-images 3` 抓取 Brixton 图片样本
+1. `scrape_latest_amazon.py --queries ... --items-per-query ...` 抓取 Amazon 小样本，不下载 Amazon 图片
+2. `brixton/brixton_amazon_format_scraper.py --queries ... --items-per-query ... --download-images` 用同一批关键词抓取 Brixton，并下载 Brixton 图片
 3. `combine_source_csvs.py` 合并 Amazon + Brixton，并为 Brixton 补齐视频占位字段
 4. `clean_amazon_data.py`
 5. `analyze_trends.py`

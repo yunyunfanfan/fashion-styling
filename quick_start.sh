@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "== Multi-Source Fashion Pipeline: Quick Start =="
-echo "This runs a small demo with Amazon search data plus a Brixton image sample."
+echo "This runs a small query-matched demo with Amazon and Brixton data."
 echo
 
 python -m pip install -r requirements.txt
@@ -29,12 +29,14 @@ AMAZON_CSV="$(ls -t "${SCRAPE_DIR}"/amazon_fashion_batch_*.csv | head -1)"
 echo "Amazon CSV: ${AMAZON_CSV}"
 
 echo
-echo "== Step 1b: Scrape Brixton image sample =="
+echo "== Step 1b: Scrape Brixton query-matched data =="
 BRIXTON_DIR="${SCRAPE_DIR}/brixton"
 python brixton/brixton_amazon_format_scraper.py \
-  --sample-images 3 \
+  --queries "${QUERIES}" \
+  --items-per-query "${ITEMS_PER_QUERY}" \
+  --download-images \
   --out-dir "${BRIXTON_DIR}"
-BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_sample_with_images_*.csv | head -1)"
+BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_fashion_batch_*.csv | head -1)"
 echo "Brixton CSV: ${BRIXTON_CSV}"
 
 BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_quick_start_${RUN_ID}.csv"
