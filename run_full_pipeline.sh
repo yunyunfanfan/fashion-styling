@@ -117,13 +117,19 @@ if [[ "${USE_UNIQLO}" -eq 1 ]]; then
   echo "== Step 1c: Scrape UNIQLO data =="
   UNIQLO_DIR="${SCRAPE_DIR}/uniqlo"
   python -m playwright install chromium
-  python uniqlo/uniqlo_playwright_fashion_scraper_fixed.py \
-    --queries "${QUERIES}" \
-    --max-products-per-query "${ITEMS_PER_QUERY}" \
-    --max-total-products "$((ITEMS_PER_QUERY * 12))" \
-    --delay "${DELAY}" \
-    --keep-unrated \
+  UNIQLO_ARGS=(
+    --queries "${QUERIES}"
+    --max-products-per-query "${ITEMS_PER_QUERY}"
+    --max-total-products "$((ITEMS_PER_QUERY * 12))"
+    --delay "${DELAY}"
+    --keep-unrated
     --output-dir "${UNIQLO_DIR}"
+  )
+  if [[ "${USE_IMAGES}" -eq 1 ]]; then
+    UNIQLO_ARGS+=(--download-images)
+  fi
+  python uniqlo/uniqlo_playwright_fashion_scraper_fixed.py \
+    "${UNIQLO_ARGS[@]}"
   UNIQLO_CSV="$(ls -t "${UNIQLO_DIR}"/uniqlo_fashion_batch_*.csv | head -1)"
   echo "UNIQLO CSV: ${UNIQLO_CSV}"
 fi

@@ -140,7 +140,7 @@ run_full_pipeline.sh
 
 ### Quick Start
 
-快速验证整条流程，默认用同一批多元风格关键词抓取 Amazon、Brixton 和 UNIQLO：6 个关键词、Amazon/Brixton 每个关键词最多 6 条商品，UNIQLO 最多抓取 18 条小样本。关键词覆盖配饰、外套、连衣裙、裤装、衬衫和鞋履。Amazon quick start 不下载图片；Brixton 会为匹配到的商品下载本地图片；UNIQLO 使用 Playwright 访问当前搜索/商品页，然后三源合并成一张 CSV。不调用 GLM：
+快速验证整条流程，默认用同一批多元风格关键词抓取 Amazon、Brixton 和 UNIQLO：6 个关键词、Amazon/Brixton 每个关键词最多 6 条商品，UNIQLO 最多抓取 18 条小样本。关键词覆盖配饰、外套、连衣裙、裤装、衬衫和鞋履。Amazon quick start 不下载图片；Brixton 和 UNIQLO 会为匹配到的商品下载本地图片；UNIQLO 使用 Playwright 访问当前搜索/商品页，然后三源合并成一张 CSV。不调用 GLM：
 
 ```bash
 ./quick_start.sh

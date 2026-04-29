@@ -50,6 +50,7 @@ python uniqlo/uniqlo_playwright_fashion_scraper_fixed.py \
   --delay 1.0 \
   --jitter 0.3 \
   --keep-unrated \
+  --download-images \
   --output-dir "${UNIQLO_DIR}"
 UNIQLO_CSV="$(ls -t "${UNIQLO_DIR}"/uniqlo_fashion_batch_*.csv | head -1)"
 echo "UNIQLO CSV: ${UNIQLO_CSV}"

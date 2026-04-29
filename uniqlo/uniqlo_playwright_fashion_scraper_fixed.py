@@ -1,12 +1,18 @@
 import argparse
 import csv
 import json
+import mimetypes
 import random
 import re
 import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote_plus, urljoin, urlsplit, urlunsplit
+
+try:
+    import requests
+except ImportError:
+    requests = None
 
 try:
     from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
@@ -188,6 +194,27 @@ def uniqlo_product_id(url):
 def price_numeric(price):
     match = re.search(r"\d+(?:\.\d+)?", str(price or ""))
     return match.group(0) if match else ""
+
+
+def image_extension(url, content_type=""):
+    clean = url.split("?", 1)[0].lower()
+    suffix = Path(clean).suffix
+    if suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        return ".jpg" if suffix == ".jpeg" else suffix
+    guessed = mimetypes.guess_extension(content_type.split(";", 1)[0].strip()) if content_type else ""
+    return ".jpg" if guessed in {".jpe", ".jpeg"} else guessed or ".jpg"
+
+
+def download_image(session, image_url, output_dir, product_id):
+    if not image_url or not product_id:
+        return ""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    response = session.get(image_url, timeout=35)
+    response.raise_for_status()
+    ext = image_extension(image_url, response.headers.get("content-type", ""))
+    path = output_dir / f"uniqlo_{product_id}{ext}"
+    path.write_bytes(response.content)
+    return str(path.resolve())
 
 
 def write_csv(path, rows, columns):
@@ -424,7 +451,7 @@ def collect_links_for_query(page, base_url, query, max_products_per_query, delay
     return links, search_url
 
 
-def make_row(scrape_date, source, query, page_no, page_position, result_rank, brand_name, info):
+def make_row(scrape_date, source, query, page_no, page_position, result_rank, brand_name, info, local_image_path=""):
     combined_text = normalize_text([info.get("product_name"), info.get("price"), info.get("product_url")])
     pid = uniqlo_product_id(info.get("product_url", ""))
     return {
@@ -453,7 +480,7 @@ def make_row(scrape_date, source, query, page_no, page_position, result_rank, br
         "derived_pattern": first_match(combined_text, PATTERN_TERMS),
         "product_url": info.get("product_url", ""),
         "image_url": info.get("image_url", ""),
-        "local_image_path": "",
+        "local_image_path": local_image_path,
         "has_product_video": "not_applicable",
         "video_count_detected": "",
         "video_thumbnail_url": PLACEHOLDER,
@@ -486,6 +513,22 @@ def run(args):
     errors = []
     candidates = []
     seen = set()
+    image_session = None
+    image_dir = output_dir / "images"
+    if args.download_images:
+        if requests is None:
+            raise SystemExit("Missing dependency: requests. Install it with: pip install requests")
+        image_session = requests.Session()
+        image_session.headers.update(
+            {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+                ),
+                "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+        )
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not args.headed)
@@ -539,6 +582,24 @@ def run(args):
                     continue
                 has_rating = bool(info.get("rating_numeric") and info.get("number_of_ratings_numeric"))
                 if has_rating or args.keep_unrated:
+                    local_image_path = ""
+                    if image_session is not None:
+                        try:
+                            local_image_path = download_image(
+                                image_session,
+                                info.get("image_url", ""),
+                                image_dir,
+                                uniqlo_product_id(url),
+                            )
+                        except Exception as image_exc:
+                            local_image_path = "download_failed"
+                            errors.append(
+                                {
+                                    "url": url,
+                                    "product_name": info.get("product_name", ""),
+                                    "error": f"image: {type(image_exc).__name__}: {str(image_exc)[:180]}",
+                                }
+                            )
                     row = make_row(
                         scrape_date,
                         args.source,
@@ -548,6 +609,7 @@ def run(args):
                         len(rows) + 1,
                         args.brand_name,
                         info,
+                        local_image_path=local_image_path,
                     )
                     rows.append(row)
                     status = "rated" if has_rating else "unrated"
@@ -571,6 +633,9 @@ def run(args):
     print(f"rows={len(rows)}")
     print(f"rated_products={rated_count}")
     print(f"errors={len(errors)}")
+    print(f"download_images={args.download_images}")
+    if args.download_images:
+        print(f"image_dir={image_dir.resolve()}")
     if not rows:
         print("WARNING: no rows written. Try --headed to diagnose, or add --keep-unrated to see products without ratings.")
 
@@ -588,6 +653,7 @@ def main():
     parser.add_argument("--jitter", type=float, default=1.5, help="Random extra delay.")
     parser.add_argument("--headed", action="store_true", help="Show browser window for debugging.")
     parser.add_argument("--keep-unrated", action="store_true", help="Keep products even if rating/review count is missing.")
+    parser.add_argument("--download-images", action="store_true", help="Download UNIQLO product images and write local_image_path.")
     args = parser.parse_args()
     run(args)
 

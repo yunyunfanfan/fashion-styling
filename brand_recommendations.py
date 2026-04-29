@@ -157,6 +157,7 @@ def sample_products(product_df, dimension, label, limit=3):
         return []
     subset = subset.sort_values(["result_rank", "number_of_ratings_numeric"], ascending=[True, False])
     columns = [
+        "source",
         "query",
         "brand_name",
         "product_name",
@@ -166,7 +167,25 @@ def sample_products(product_df, dimension, label, limit=3):
         "local_image_path",
     ]
     columns = [column for column in columns if column in subset.columns]
-    return subset[columns].head(limit).to_dict("records")
+    diverse_rows = []
+    seen_sources = set()
+    for _, row in subset.iterrows():
+        source = str(row.get("source", "") or "")
+        if source in seen_sources:
+            continue
+        diverse_rows.append(row)
+        seen_sources.add(source)
+        if len(diverse_rows) >= limit:
+            break
+    if len(diverse_rows) < limit:
+        selected_keys = {row.name for row in diverse_rows}
+        for _, row in subset.iterrows():
+            if row.name in selected_keys:
+                continue
+            diverse_rows.append(row)
+            if len(diverse_rows) >= limit:
+                break
+    return pd.DataFrame(diverse_rows)[columns].to_dict("records")
 
 
 def build_context(recommendations, product_df):
@@ -259,6 +278,8 @@ def local_markdown(recommendations, context, markdown_dir):
                 lines.append("")
                 lines.append(f"![{title}]({image_path})")
             lines.append(f"- {title}")
+            if product.get("source"):
+                lines.append(f"  Source: {product['source']}")
             lines.append(
                 f"  Rating: {product['rating_numeric']}; rating count: {int(product['number_of_ratings_numeric'])}"
             )
@@ -297,7 +318,7 @@ def glm_markdown(context, model, api_key_env, markdown_dir):
         "1. Explain the tier rules.\n"
         "2. Convert multi-dimensional Strong Trend labels into concrete product directions.\n"
         "3. Use evidence from trend scores, item counts, query coverage, ratings, and sample products.\n"
-        "4. Mention that the project uses multiple public e-commerce sources; Amazon contributes text, image, video, and context fields, while Brixton contributes text, image, and context fields.\n"
+        "4. Mention that the project uses multiple public e-commerce sources; Amazon contributes text, image, video, and context fields, while Brixton and UNIQLO contribute text, image, and context fields.\n"
         "5. Do not invent labels outside the context.\n"
         "6. Include product images using Markdown image syntax. Use each product's display_image_path field when available.\n"
         "7. For each trend section, use exactly these subheadings:\n"
