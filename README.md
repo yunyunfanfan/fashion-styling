@@ -6,7 +6,7 @@
 
 它的目标不是单纯保存商品列表，而是为 **Fashion Trend Intelligence** 项目提供公开电商数据源，用来观察当前市场中正在被展示和销售的 fashion products，并补充商品图片和 Amazon 商品详情页视频等视觉证据。
 
-在当前项目中，Amazon 数据承担四个作用：
+在当前项目中，Amazon、Brixton 和 UNIQLO 共同承担多源电商数据采集作用，其中 Amazon 额外提供商品详情页视频证据：
 
 1. 提供商品级市场信号
 2. 提供商品图片和商品 metadata
@@ -25,11 +25,11 @@ Homework 要求项目关注：
 - ethics and risk statement
 - brand recommendations
 
-Amazon 单源多模态 pipeline 对应这些要求：
+多源多模态 pipeline 对应这些要求：
 
-| Homework Requirement | Amazon Pipeline Response |
+| Homework Requirement | Pipeline Response |
 | --- | --- |
-| Public data source | Amazon search result pages, Amazon product detail pages, and Brixton product data |
+| Public data source | Amazon search result pages, Amazon product detail pages, Brixton product data, and UNIQLO product/search pages |
 | Text data | 商品名、品牌名、搜索关键词 |
 | Image data | 商品图片 URL，可下载本地图片 |
 | Video data | Amazon 商品详情页视频 URL、视频缩略图、本地 mp4、视频封面、视频帧；非视频来源用 `not_applicable` / `no_video` |
@@ -77,6 +77,7 @@ https://www.amazon.in/s?k=denim+jacket&page=1
 | `scrape_latest_amazon.py` | 抓取 Amazon 当前搜索结果；可选进入详情页提取视频字段、下载视频并抽帧 |
 | `extract_amazon_product_video.py` | 单商品视频提取；有视频则记录/下载并抽取封面和帧，无视频则写 `no_video` |
 | `brixton/brixton_amazon_format_scraper.py` | 抓取 Brixton 商品和评论摘要，导出与 Amazon 主字段对齐的 CSV |
+| `uniqlo/uniqlo_playwright_fashion_scraper_fixed.py` | 用 Playwright 抓取 UNIQLO 搜索页和商品页，导出与 Amazon 主字段对齐的 CSV |
 | `combine_source_csvs.py` | 合并 Amazon-format 多源 CSV，并为非 Amazon 来源补齐视频占位字段 |
 | `clean_amazon_data.py` | 清洗数据，删除缺少评分/评论数的商品，导出补标模板 |
 | `fill_labels_with_glm.py` | 调用 GLM 视觉/文本模型补全标签 |
@@ -120,6 +121,7 @@ python -m pip install -r requirements.txt
 requests
 beautifulsoup4
 lxml
+playwright
 zhipuai
 imageio
 imageio-ffmpeg
@@ -138,7 +140,7 @@ run_full_pipeline.sh
 
 ### Quick Start
 
-快速验证整条流程，默认用同一批多元风格关键词抓取 Amazon 和 Brixton：6 个关键词、每个来源每个关键词最多 6 条商品。关键词覆盖配饰、外套、连衣裙、裤装、衬衫和鞋履。Amazon quick start 不下载图片；Brixton 会为匹配到的商品下载本地图片，然后合并成一张多源 CSV。不调用 GLM：
+快速验证整条流程，默认用同一批多元风格关键词抓取 Amazon、Brixton 和 UNIQLO：6 个关键词、Amazon/Brixton 每个关键词最多 6 条商品，UNIQLO 最多抓取 18 条小样本。关键词覆盖配饰、外套、连衣裙、裤装、衬衫和鞋履。Amazon quick start 不下载图片；Brixton 会为匹配到的商品下载本地图片；UNIQLO 使用 Playwright 访问当前搜索/商品页，然后三源合并成一张 CSV。不调用 GLM：
 
 ```bash
 ./quick_start.sh
@@ -156,10 +158,11 @@ analysis/quick_start_<timestamp>/
 ```text
 1. `scrape_latest_amazon.py --queries ... --items-per-query ...` 抓取 Amazon 小样本，不下载 Amazon 图片
 2. `brixton/brixton_amazon_format_scraper.py --queries ... --items-per-query ... --download-images` 用同一批关键词抓取 Brixton，并下载 Brixton 图片
-3. `combine_source_csvs.py` 合并 Amazon + Brixton，并为 Brixton 补齐视频占位字段
-4. `clean_amazon_data.py`
-5. `analyze_trends.py`
-6. `brand_recommendations.py`
+3. `uniqlo/uniqlo_playwright_fashion_scraper_fixed.py --queries ...` 用同一批关键词抓取 UNIQLO
+4. `combine_source_csvs.py` 合并 Amazon + Brixton + UNIQLO，并为非 Amazon 来源补齐视频占位字段
+5. `clean_amazon_data.py`
+6. `analyze_trends.py`
+7. `brand_recommendations.py`
 ```
 
 Quick Start 的合并表会保存为：
@@ -183,7 +186,8 @@ scraped/quick_start_<timestamp>/fashion_multisource_quick_start_<timestamp>.csv
 每个关键词 50 条商品
 下载本地图片
 抓取 Brixton 作为第二个公开电商来源
-合并 Amazon + Brixton 为多源总表
+抓取 UNIQLO 作为第三个公开电商来源
+合并 Amazon + Brixton + UNIQLO 为多源总表
 清洗数据
 导出人工补标模板
 计算 CRITIC 趋势分数
@@ -194,7 +198,13 @@ scraped/quick_start_<timestamp>/fashion_multisource_quick_start_<timestamp>.csv
 如果只想跑 Amazon 单源：
 
 ```bash
-./run_full_pipeline.sh --no-brixton
+./run_full_pipeline.sh --no-brixton --no-uniqlo
+```
+
+如果只想临时关闭 UNIQLO：
+
+```bash
+./run_full_pipeline.sh --no-uniqlo
 ```
 
 只生成 CSV，不下载图片：
@@ -209,7 +219,7 @@ scraped/quick_start_<timestamp>/fashion_multisource_quick_start_<timestamp>.csv
 ./run_full_pipeline.sh --include-videos
 ```
 
-视频只会用于 Amazon 来源；Brixton 行会保留 `not_applicable` / `no_video` 占位字段，方便后续清洗、GLM 和分析脚本共用同一张表。
+视频只会用于 Amazon 来源；Brixton 和 UNIQLO 行会保留 `not_applicable` / `no_video` 占位字段，方便后续清洗、GLM 和分析脚本共用同一张表。
 
 下载视频，并自动截取视频封面和 3 帧图片：
 

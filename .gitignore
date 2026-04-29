@@ -13,3 +13,11 @@ venv/
 .env.*
 .claude/
 *_glm_labeled.csv
+analysis/quick_start_*/
+analysis/full_*/
+analysis/tqdm_test/
+scraped/quick_start_*/
+scraped/full_*/
+scraped/product_videos/
+scraped/video_smoke_test/
+scraped/*_probe.html

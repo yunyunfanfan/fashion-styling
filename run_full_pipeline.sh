@@ -5,11 +5,13 @@ cd "$(dirname "$0")"
 
 USE_IMAGES=1
 USE_BRIXTON=1
+USE_UNIQLO=1
 USE_VIDEOS=0
 DOWNLOAD_VIDEOS=0
 USE_GLM_LABELS=0
 USE_GLM_REPORT=0
 MODEL="${GLM_MODEL:-glm-4.6v-flash}"
+QUERIES="${QUERIES:-bucket hat,denim jacket,floral dress,striped shirt,oversized hoodie,cargo pants,knit cardigan,platform shoes,linen shirt,pleated skirt,leather jacket,wide leg jeans}"
 ITEMS_PER_QUERY="${ITEMS_PER_QUERY:-50}"
 PAGES="${PAGES:-2}"
 DELAY="${DELAY:-2.0}"
@@ -23,6 +25,9 @@ for arg in "$@"; do
       ;;
     --no-brixton)
       USE_BRIXTON=0
+      ;;
+    --no-uniqlo)
+      USE_UNIQLO=0
       ;;
     --use-glm-labels)
       USE_GLM_LABELS=1
@@ -42,18 +47,20 @@ for arg in "$@"; do
       ;;
     *)
       echo "Unknown argument: $arg" >&2
-      echo "Supported: --no-images --no-brixton --include-videos --download-videos --use-glm-labels --use-glm-report --text-only-glm" >&2
+      echo "Supported: --no-images --no-brixton --no-uniqlo --include-videos --download-videos --use-glm-labels --use-glm-report --text-only-glm" >&2
       exit 1
       ;;
   esac
 done
 
 echo "== Amazon Fashion Pipeline: Full Run =="
+echo "Queries: ${QUERIES}"
 echo "Items per query: ${ITEMS_PER_QUERY}"
 echo "Pages per query: ${PAGES}"
 echo "Request delay: ${DELAY}s"
 echo "Download images: ${USE_IMAGES}"
 echo "Include Brixton source: ${USE_BRIXTON}"
+echo "Include UNIQLO source: ${USE_UNIQLO}"
 echo "Include videos: ${USE_VIDEOS}"
 echo "Download videos and extract frames: ${DOWNLOAD_VIDEOS}"
 echo "Max videos per query: ${MAX_VIDEOS}"
@@ -71,6 +78,7 @@ ANALYSIS_DIR="analysis/full_${RUN_ID}"
 
 echo "== Step 1: Scrape Amazon data =="
 SCRAPE_ARGS=(
+  --queries "${QUERIES}"
   --items-per-query "${ITEMS_PER_QUERY}"
   --pages "${PAGES}"
   --delay "${DELAY}"
@@ -94,7 +102,7 @@ if [[ "${USE_BRIXTON}" -eq 1 ]]; then
   echo
   echo "== Step 1b: Scrape Brixton data =="
   BRIXTON_DIR="${SCRAPE_DIR}/brixton"
-  BRIXTON_ARGS=(--out-dir "${BRIXTON_DIR}")
+  BRIXTON_ARGS=(--queries "${QUERIES}" --items-per-query "${ITEMS_PER_QUERY}" --out-dir "${BRIXTON_DIR}")
   if [[ "${USE_IMAGES}" -eq 1 ]]; then
     BRIXTON_ARGS+=(--download-images)
   fi
@@ -102,8 +110,34 @@ if [[ "${USE_BRIXTON}" -eq 1 ]]; then
   BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_fashion_batch_*.csv | head -1)"
   echo "Brixton CSV: ${BRIXTON_CSV}"
 
-  BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_batch_${RUN_ID}.csv"
-  python combine_source_csvs.py "${AMAZON_CSV}" "${BRIXTON_CSV}" --output-csv "${BATCH_CSV}"
+fi
+
+if [[ "${USE_UNIQLO}" -eq 1 ]]; then
+  echo
+  echo "== Step 1c: Scrape UNIQLO data =="
+  UNIQLO_DIR="${SCRAPE_DIR}/uniqlo"
+  python -m playwright install chromium
+  python uniqlo/uniqlo_playwright_fashion_scraper_fixed.py \
+    --queries "${QUERIES}" \
+    --max-products-per-query "${ITEMS_PER_QUERY}" \
+    --max-total-products "$((ITEMS_PER_QUERY * 12))" \
+    --delay "${DELAY}" \
+    --keep-unrated \
+    --output-dir "${UNIQLO_DIR}"
+  UNIQLO_CSV="$(ls -t "${UNIQLO_DIR}"/uniqlo_fashion_batch_*.csv | head -1)"
+  echo "UNIQLO CSV: ${UNIQLO_CSV}"
+fi
+
+BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_batch_${RUN_ID}.csv"
+COMBINE_INPUTS=("${AMAZON_CSV}")
+if [[ "${USE_BRIXTON}" -eq 1 ]]; then
+  COMBINE_INPUTS+=("${BRIXTON_CSV}")
+fi
+if [[ "${USE_UNIQLO}" -eq 1 ]]; then
+  COMBINE_INPUTS+=("${UNIQLO_CSV}")
+fi
+if [[ "${#COMBINE_INPUTS[@]}" -gt 1 ]]; then
+  python combine_source_csvs.py "${COMBINE_INPUTS[@]}" --output-csv "${BATCH_CSV}"
 else
   BATCH_CSV="${AMAZON_CSV}"
 fi
@@ -168,6 +202,10 @@ echo "  ${AMAZON_CSV}"
 if [[ "${USE_BRIXTON}" -eq 1 ]]; then
   echo "Brixton data:"
   echo "  ${BRIXTON_CSV}"
+fi
+if [[ "${USE_UNIQLO}" -eq 1 ]]; then
+  echo "UNIQLO data:"
+  echo "  ${UNIQLO_CSV}"
 fi
 echo "Scraped data:"
 echo "  ${BATCH_CSV}"

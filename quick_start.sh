@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "== Multi-Source Fashion Pipeline: Quick Start =="
-echo "This runs a small multi-style, query-matched demo with Amazon and Brixton data."
+echo "This runs a small multi-style, query-matched demo with Amazon, Brixton, and UNIQLO data."
 echo
 
 python -m pip install -r requirements.txt
@@ -39,8 +39,23 @@ python brixton/brixton_amazon_format_scraper.py \
 BRIXTON_CSV="$(ls -t "${BRIXTON_DIR}"/brixton_fashion_batch_*.csv | head -1)"
 echo "Brixton CSV: ${BRIXTON_CSV}"
 
+echo
+echo "== Step 1c: Scrape UNIQLO query-matched data =="
+UNIQLO_DIR="${SCRAPE_DIR}/uniqlo"
+python -m playwright install chromium
+python uniqlo/uniqlo_playwright_fashion_scraper_fixed.py \
+  --queries "${QUERIES}" \
+  --max-products-per-query "${ITEMS_PER_QUERY}" \
+  --max-total-products "$((ITEMS_PER_QUERY * 3))" \
+  --delay 1.0 \
+  --jitter 0.3 \
+  --keep-unrated \
+  --output-dir "${UNIQLO_DIR}"
+UNIQLO_CSV="$(ls -t "${UNIQLO_DIR}"/uniqlo_fashion_batch_*.csv | head -1)"
+echo "UNIQLO CSV: ${UNIQLO_CSV}"
+
 BATCH_CSV="${SCRAPE_DIR}/fashion_multisource_quick_start_${RUN_ID}.csv"
-python combine_source_csvs.py "${AMAZON_CSV}" "${BRIXTON_CSV}" --output-csv "${BATCH_CSV}"
+python combine_source_csvs.py "${AMAZON_CSV}" "${BRIXTON_CSV}" "${UNIQLO_CSV}" --output-csv "${BATCH_CSV}"
 echo "Batch CSV: ${BATCH_CSV}"
 
 echo
@@ -66,6 +81,8 @@ echo "Amazon data:"
 echo "  ${AMAZON_CSV}"
 echo "Brixton data:"
 echo "  ${BRIXTON_CSV}"
+echo "UNIQLO data:"
+echo "  ${UNIQLO_CSV}"
 echo "Combined data:"
 echo "  ${BATCH_CSV}"
 echo "Trend report:"
