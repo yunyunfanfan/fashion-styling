@@ -92,7 +92,7 @@ Build a capsule around casual styling, using the strongest material, colour, and
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -134,11 +134,11 @@ Visual evidence:
 
 #### Product Direction
 
-Develop solid surface treatments across relevant products, then validate with social and community sources.
+Develop solid surface treatments across relevant products, then validate with Amazon images, videos, rank, and review evidence.
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -184,7 +184,7 @@ Prioritize cotton in core products and test adjacent categories where the materi
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -230,7 +230,7 @@ Use red as a hero colour or recurring accent across selected categories.
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -276,7 +276,7 @@ Use denim as a hero colour or recurring accent across selected categories.
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -322,7 +322,7 @@ Use black as a hero colour or recurring accent across selected categories.
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -368,7 +368,7 @@ Design products and campaign styling around vacation occasions, with product nam
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
@@ -410,11 +410,11 @@ Visual evidence:
 
 #### Product Direction
 
-Develop floral surface treatments across relevant products, then validate with social and community sources.
+Develop floral surface treatments across relevant products, then validate with Amazon images, videos, rank, and review evidence.
 
 #### Brand Recommendation
 
-Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate with TikTok and Telegram before treating it as a cross-platform trend.
+Prioritize this signal in assortment planning, product naming, and campaign visuals. Validate it against Amazon image/video evidence, review-count strength, rank position, and sponsored-placement risk.
 
 #### Risk / Validation Note
 
