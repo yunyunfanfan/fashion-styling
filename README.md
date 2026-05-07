@@ -1,5 +1,27 @@
 # Amazon Fashion Data Pipeline
 
+## Report Framework Diagrams
+
+这些框架图复用自课程报告，用来快速说明本项目从公开电商页面到多模态证据、AI 标签、趋势分数和品牌建议的整体 pipeline。
+
+### Multimodal Source Map
+
+![Multimodal source map](docs/report_framework/source_map.png)
+
+### Evidence Alignment and Data Model
+
+![Evidence alignment diagram](docs/report_framework/alignment_diagram.png)
+
+![Evidence data model](docs/report_framework/data_model.png)
+
+### Scraping, AI Labeling and Trend Scoring Flow
+
+![Scraper logic](docs/report_framework/scraper_logic.png)
+
+![GLM labeling flow](docs/report_framework/glm_labeling_flow.png)
+
+![Trend score formula](docs/report_framework/trend_score_formula.png)
+
 ## 1. Project Purpose
 
 这个文件夹是课程项目中的多源电商数据采集与清洗模块。
