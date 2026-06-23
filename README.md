@@ -22,6 +22,40 @@
 
 ![Trend score formula](docs/report_framework/trend_score_formula.png)
 
+## Final Product Screens
+
+下面这组图片展示了课程项目已经完成的 final website product，而不只是数据采集脚本或中期分析素材。界面覆盖项目首页、问题 framing、三源概览、工作流、证据说明、分类 drill-down，以及 recommendation agent 的生成状态。
+
+### Landing and Framing
+
+![Final website landing](docs/final_product/01_overview_landing.jpg)
+
+![Problem framing screen](docs/final_product/02_problem_statement.jpg)
+
+### Source Overview and Workflow
+
+![Source overview screen](docs/final_product/03_source_overview.jpg)
+
+![Workflow checklist screen](docs/final_product/04_workflow_checklist.jpg)
+
+### Evidence and Query Drill-Down
+
+![Strong evidence screen](docs/final_product/05_strong_evidence.jpg)
+
+![Denim dashboard screen](docs/final_product/06_denim_dashboard.jpg)
+
+![Denim mobile panel](docs/final_product/07_denim_mobile_panel.png)
+
+![Product wall screen](docs/final_product/08_product_wall.jpg)
+
+### Recommendation Output
+
+![Signal summary screen](docs/final_product/09_signal_summary.jpg)
+
+![Agent loading screen](docs/final_product/10_agent_loading.jpg)
+
+![Agent packaging screen](docs/final_product/11_agent_packaging.jpg)
+
 ## 1. Project Purpose
 
 这个文件夹是课程项目中的多源电商数据采集与清洗模块。
