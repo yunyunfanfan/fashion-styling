@@ -28,33 +28,46 @@
 
 ### Landing and Framing
 
-![Final website landing](docs/final_product/01_overview_landing.jpg)
+项目首页和问题 framing 页面主要负责把课程项目从“脚本集合”转成“可展示的成品”。
 
-![Problem framing screen](docs/final_product/02_problem_statement.jpg)
+<p align="center">
+  <img src="docs/final_product/01_overview_landing.jpg" alt="Final website landing" width="48%" />
+  <img src="docs/final_product/02_problem_statement.jpg" alt="Problem framing screen" width="48%" />
+</p>
 
 ### Source Overview and Workflow
 
-![Source overview screen](docs/final_product/03_source_overview.jpg)
+这一组页面解释三源数据为什么能放进同一个 schema，以及整条 pipeline 在最终界面中如何被读者理解。
 
-![Workflow checklist screen](docs/final_product/04_workflow_checklist.jpg)
+<p align="center">
+  <img src="docs/final_product/03_source_overview.jpg" alt="Source overview screen" width="48%" />
+  <img src="docs/final_product/04_workflow_checklist.jpg" alt="Workflow checklist screen" width="48%" />
+</p>
 
 ### Evidence and Query Drill-Down
 
+这里开始进入“证据如何被读懂”的部分。先给出强证据页面，再进入 `denim jacket` 的 query drill-down。
+
 ![Strong evidence screen](docs/final_product/05_strong_evidence.jpg)
 
-![Denim dashboard screen](docs/final_product/06_denim_dashboard.jpg)
+`denim jacket` 这一组图展示了同一个 query 如何被拆成大屏 dashboard、竖版 panel 和产品样例墙。
 
-![Denim mobile panel](docs/final_product/07_denim_mobile_panel.png)
-
-![Product wall screen](docs/final_product/08_product_wall.jpg)
+<p align="center">
+  <img src="docs/final_product/06_denim_dashboard.jpg" alt="Denim dashboard screen" width="52%" />
+  <img src="docs/final_product/07_denim_mobile_panel.png" alt="Denim mobile panel" width="22%" />
+  <img src="docs/final_product/08_product_wall.jpg" alt="Product wall screen" width="22%" />
+</p>
 
 ### Recommendation Output
 
+最后一组页面展示 recommendation output，不只是最终结论，还包括 agent 处理中间状态。
+
 ![Signal summary screen](docs/final_product/09_signal_summary.jpg)
 
-![Agent loading screen](docs/final_product/10_agent_loading.jpg)
-
-![Agent packaging screen](docs/final_product/11_agent_packaging.jpg)
+<p align="center">
+  <img src="docs/final_product/10_agent_loading.jpg" alt="Agent loading screen" width="48%" />
+  <img src="docs/final_product/11_agent_packaging.jpg" alt="Agent packaging screen" width="48%" />
+</p>
 
 ## 1. Project Purpose
 
